@@ -1,0 +1,81 @@
+import { test, expect } from '@playwright/test';
+import { TodoPage } from './pages/todo-page';
+
+let todoPage: TodoPage;
+
+test.beforeEach(async ({ page }) => {
+  todoPage = new TodoPage(page);
+  await todoPage.goto();
+});
+
+test('has title', async ({ page }) => {
+  await expect(page).toHaveTitle(/TodoMVC/);
+});
+
+test('adds todos', async () => {
+  await todoPage.addTodo('buy milk', 'walk the dog');
+
+  await todoPage.expectTodos(['buy milk', 'walk the dog']);
+  await todoPage.expectItemsLeft(2);
+  await expect(todoPage.newTodoInput).toBeEmpty();
+});
+
+test('completes a todo', async () => {
+  await todoPage.addTodo('buy milk', 'walk the dog');
+
+  await todoPage.toggle('buy milk');
+
+  await todoPage.expectCompleted('buy milk');
+  await todoPage.expectCompleted('walk the dog', false);
+  await todoPage.expectItemsLeft(1);
+});
+
+test('marks all as complete', async () => {
+  await todoPage.addTodo('buy milk', 'walk the dog');
+
+  await todoPage.toggleAllTodos();
+
+  await todoPage.expectCompleted('buy milk');
+  await todoPage.expectCompleted('walk the dog');
+  await todoPage.expectItemsLeft(0);
+});
+
+test('edits a todo', async () => {
+  await todoPage.addTodo('buy milk');
+
+  await todoPage.edit('buy milk', 'buy oat milk');
+
+  await todoPage.expectTodos(['buy oat milk']);
+});
+
+test('deletes a todo', async () => {
+  await todoPage.addTodo('buy milk', 'walk the dog');
+
+  await todoPage.delete('buy milk');
+
+  await todoPage.expectTodos(['walk the dog']);
+});
+
+test('filters by status', async () => {
+  await todoPage.addTodo('buy milk', 'walk the dog');
+  await todoPage.toggle('buy milk');
+
+  await todoPage.filter('Active');
+  await todoPage.expectTodos(['walk the dog']);
+
+  await todoPage.filter('Completed');
+  await todoPage.expectTodos(['buy milk']);
+
+  await todoPage.filter('All');
+  await todoPage.expectTodos(['buy milk', 'walk the dog']);
+});
+
+test('clears completed todos', async () => {
+  await todoPage.addTodo('buy milk', 'walk the dog');
+  await todoPage.toggle('buy milk');
+
+  await todoPage.clearCompleted();
+
+  await todoPage.expectTodos(['walk the dog']);
+  await expect(todoPage.clearCompletedButton).toBeHidden();
+});
