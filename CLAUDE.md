@@ -8,6 +8,8 @@ A Playwright end-to-end testing playground (TypeScript). There is no application
 
 Specs use the Page Object Model: page objects live in `tests/pages/` (e.g. `TodoPage` in `tests/pages/todo-page.ts`) and expose locators, user actions (`addTodo`, `toggle`, `edit`, …) and `expect*` assertion helpers. Specs should go through the page object rather than using raw selectors. The demo stores todos in each browser context's `localStorage`, so every test starts with an empty list and needs no cleanup.
 
+`tests/todo-list.spec.ts` covers core list behaviour. `tests/persistence.spec.ts` checks todos survive a reload; because the demo saves synchronously, it uses `simulateSlowBackend` (an `addInitScript` patch plus a `page.route` mock with random latency) to make saves async, and waits on the save's `PUT` response before reloading. Don't replace that wait with `waitForTimeout`: it's the fix for a real race.
+
 ## Commands
 
 There are no npm scripts; use `npx playwright` directly.
@@ -16,7 +18,7 @@ There are no npm scripts; use `npx playwright` directly.
 npm ci                                   # install dependencies
 npx playwright install --with-deps       # install browser binaries (first run / after upgrading Playwright)
 npx playwright test                      # run all tests on chromium and webkit
-npx playwright test tests/example.spec.ts          # run a single file
+npx playwright test tests/todo-list.spec.ts        # run a single file
 npx playwright test -g "has title"                 # run tests matching a title
 npx playwright test --project=chromium             # run a single browser project
 npx playwright test --headed / --ui / --debug      # interactive modes
