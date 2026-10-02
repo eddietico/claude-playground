@@ -19,7 +19,7 @@ Other useful commands:
 
 ```sh
 npx playwright test tests/todo-list.spec.ts   # one file
-npx playwright test -g "edits a todo"         # tests matching a title
+npx playwright test -g "Escape"               # tests matching a title
 npx playwright test --project=chromium        # one browser
 npx playwright test --ui                      # interactive UI mode
 npx playwright test --trace on                # record a trace for every test
@@ -30,7 +30,8 @@ npx playwright test --trace on                # record a trace for every test
 ```
 tests/
   pages/todo-page.ts        Page object: locators, user actions, assertions
-  todo-list.spec.ts         Add, complete, edit, delete, filter, clear
+  todo-list.spec.ts         Add, complete, delete, filter, clear
+  editing.spec.ts           Edit rules: save, cancel, trim, delete on empty
   persistence.spec.ts       Todos survive a reload, with a simulated slow backend
 playwright.config.ts        Browsers, parallelism, retries, reporter
 .github/workflows/          CI pipeline

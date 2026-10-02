@@ -2,6 +2,9 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 export type Filter = 'All' | 'Active' | 'Completed';
 
+/** How an edit ends: Enter and blur save it, Escape cancels it. */
+export type EditEnd = 'Enter' | 'Escape' | 'blur';
+
 /**
  * Page Object for the TodoMVC demo at https://demo.playwright.dev/todomvc.
  *
@@ -17,6 +20,7 @@ export class TodoPage {
   readonly toggleAll: Locator;
   readonly count: Locator;
   readonly clearCompletedButton: Locator;
+  readonly editor: Locator;
 
   constructor(readonly page: Page) {
     this.newTodoInput = page.getByPlaceholder('What needs to be done?');
@@ -25,6 +29,7 @@ export class TodoPage {
     this.toggleAll = page.getByLabel('Mark all as complete');
     this.count = page.getByTestId('todo-count');
     this.clearCompletedButton = page.getByRole('button', { name: 'Clear completed' });
+    this.editor = page.getByRole('textbox', { name: 'Edit' });
   }
 
   async goto() {
@@ -53,11 +58,15 @@ export class TodoPage {
     await this.toggleAll.check();
   }
 
-  async edit(title: string, newTitle: string) {
+  async edit(title: string, newTitle: string, end: EditEnd = 'Enter') {
     await this.item(title).getByTestId('todo-title').dblclick();
-    const editor = this.page.getByRole('textbox', { name: 'Edit' });
-    await editor.fill(newTitle);
-    await editor.press('Enter');
+    await this.editor.fill(newTitle);
+    if (end === 'blur') {
+      // Click away like a user would, rather than calling locator.blur().
+      await this.page.getByRole('heading', { name: 'todos' }).click();
+    } else {
+      await this.editor.press(end);
+    }
   }
 
   async delete(title: string) {
@@ -75,8 +84,13 @@ export class TodoPage {
     await this.clearCompletedButton.click();
   }
 
-  async expectTodos(titles: string[]) {
+  /** Strings ignore surrounding whitespace; use an anchored RegExp to match exactly. */
+  async expectTodos(titles: (string | RegExp)[]) {
     await expect(this.titles).toHaveText(titles);
+  }
+
+  async expectNotEditing() {
+    await expect(this.editor).toBeHidden();
   }
 
   async expectCompleted(title: string, completed = true) {

@@ -40,14 +40,6 @@ test('marks all as complete', async () => {
   await todoPage.expectItemsLeft(0);
 });
 
-test('edits a todo', async () => {
-  await todoPage.addTodo('buy milk');
-
-  await todoPage.edit('buy milk', 'buy oat milk');
-
-  await todoPage.expectTodos(['buy oat milk']);
-});
-
 test('deletes a todo', async () => {
   await todoPage.addTodo('buy milk', 'walk the dog');
 
