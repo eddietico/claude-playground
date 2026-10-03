@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+At the start of a session, read `NOTES.md` if it exists. It's a gitignored, local hand-off file with the current state of the work, what's next, workflow preferences and known gotchas. Update it when a piece of work is finished.
+
 ## Overview
 
 A Playwright end-to-end testing playground (TypeScript). There is no application code: the repo holds Playwright config and specs under `tests/`, which run against the external TodoMVC demo at `https://demo.playwright.dev/todomvc`. No `baseURL` or `webServer` is configured; the URL lives in the page object.
