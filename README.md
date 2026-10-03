@@ -29,6 +29,7 @@ npx playwright test --trace on                # record a trace for every test
 
 ```
 tests/
+  fixtures.ts               `todoPage` fixture; specs import `test` from here
   pages/todo-page.ts        Page object: locators, user actions, assertions
   todo-list.spec.ts         Add, complete, delete, filter, clear
   editing.spec.ts           Edit rules: save, cancel, trim, delete on empty
@@ -42,7 +43,7 @@ playwright.config.ts        Browsers, parallelism, retries, reporter
 **Page Object Model.** Specs never touch selectors. They call `TodoPage` actions (`addTodo`, `toggle`, `edit`, `delete`, `filter`) and assertion helpers (`expectTodos`, `expectCompleted`, `expectItemsLeft`), so tests read as user steps:
 
 ```ts
-test('completes a todo', async () => {
+test('completes a todo', async ({ todoPage }) => {
   await todoPage.addTodo('buy milk', 'walk the dog');
 
   await todoPage.toggle('buy milk');
@@ -53,6 +54,8 @@ test('completes a todo', async () => {
 ```
 
 If the UI changes, only the page object needs updating.
+
+**Fixtures instead of `beforeEach`.** `tests/fixtures.ts` extends Playwright's `test` with a `todoPage` fixture that creates the page object and opens the app. A test asks for it by name, as above, so there is no shared `let` variable and the setup appears in the test's signature. Fixtures are lazy: a test that doesn't ask for `todoPage` never navigates. `persistence.spec.ts` overrides the built-in `page` fixture to install its fake backend. Because `todoPage` depends on `page`, that override runs before the navigation.
 
 **User-facing locators.** Elements are found by role, label, placeholder or test id (`getByRole('checkbox', { name: 'Toggle Todo' })`) rather than CSS classes. This keeps tests close to how a user sees the page and stops them breaking when styling changes.
 

@@ -1,18 +1,10 @@
-import { test, expect } from '@playwright/test';
-import { TodoPage } from './pages/todo-page';
+import { test, expect } from './fixtures';
 
-let todoPage: TodoPage;
-
-test.beforeEach(async ({ page }) => {
-  todoPage = new TodoPage(page);
-  await todoPage.goto();
+test('has title', async ({ todoPage }) => {
+  await expect(todoPage.page).toHaveTitle(/TodoMVC/);
 });
 
-test('has title', async ({ page }) => {
-  await expect(page).toHaveTitle(/TodoMVC/);
-});
-
-test('adds todos', async () => {
+test('adds todos', async ({ todoPage }) => {
   await todoPage.addTodo('buy milk', 'walk the dog');
 
   await todoPage.expectTodos(['buy milk', 'walk the dog']);
@@ -20,7 +12,7 @@ test('adds todos', async () => {
   await expect(todoPage.newTodoInput).toBeEmpty();
 });
 
-test('completes a todo', async () => {
+test('completes a todo', async ({ todoPage }) => {
   await todoPage.addTodo('buy milk', 'walk the dog');
 
   await todoPage.toggle('buy milk');
@@ -30,7 +22,7 @@ test('completes a todo', async () => {
   await todoPage.expectItemsLeft(1);
 });
 
-test('marks all as complete', async () => {
+test('marks all as complete', async ({ todoPage }) => {
   await todoPage.addTodo('buy milk', 'walk the dog');
 
   await todoPage.toggleAllTodos();
@@ -40,7 +32,7 @@ test('marks all as complete', async () => {
   await todoPage.expectItemsLeft(0);
 });
 
-test('deletes a todo', async () => {
+test('deletes a todo', async ({ todoPage }) => {
   await todoPage.addTodo('buy milk', 'walk the dog');
 
   await todoPage.delete('buy milk');
@@ -48,7 +40,7 @@ test('deletes a todo', async () => {
   await todoPage.expectTodos(['walk the dog']);
 });
 
-test('filters by status', async () => {
+test('filters by status', async ({ todoPage }) => {
   await todoPage.addTodo('buy milk', 'walk the dog');
   await todoPage.toggle('buy milk');
 
@@ -62,7 +54,7 @@ test('filters by status', async () => {
   await todoPage.expectTodos(['buy milk', 'walk the dog']);
 });
 
-test('clears completed todos', async () => {
+test('clears completed todos', async ({ todoPage }) => {
   await todoPage.addTodo('buy milk', 'walk the dog');
   await todoPage.toggle('buy milk');
 

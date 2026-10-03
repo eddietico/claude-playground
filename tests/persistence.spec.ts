@@ -1,7 +1,5 @@
-import { test, type Page } from '@playwright/test';
-import { TodoPage } from './pages/todo-page';
-
-let todoPage: TodoPage;
+import { type Page } from '@playwright/test';
+import { test as base } from './fixtures';
 
 /**
  * The demo saves to localStorage synchronously, so it has no real races.
@@ -23,13 +21,17 @@ async function simulateSlowBackend(page: Page) {
   });
 }
 
-test.beforeEach(async ({ page }) => {
-  await simulateSlowBackend(page);
-  todoPage = new TodoPage(page);
-  await todoPage.goto();
+// Override `page` for this file only. The todoPage fixture depends on `page`,
+// so the slow backend is installed before todoPage navigates, which
+// addInitScript needs.
+const test = base.extend({
+  page: async ({ page }, use) => {
+    await simulateSlowBackend(page);
+    await use(page);
+  },
 });
 
-test('todos survive a reload', async ({ page }) => {
+test('todos survive a reload', async ({ page, todoPage }) => {
   // Start listening before the action so a fast response can't be missed.
   const saved = page.waitForResponse(
     (res) => res.url().endsWith('/api/todos') && res.request().method() === 'PUT',
