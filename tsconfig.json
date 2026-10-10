@@ -1,0 +1,15 @@
+{
+  // Type-checking only (`npx tsc`). Playwright transpiles the tests itself and
+  // strips types without checking them, so this is the only thing that does.
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "target": "es2023",
+    "module": "nodenext",
+    // "dom" is for code that runs in the browser, e.g. addInitScript callbacks.
+    "lib": ["es2023", "dom"],
+    "types": ["node"],
+    "skipLibCheck": true
+  },
+  "include": ["playwright.config.ts", "tests/**/*.ts"]
+}
