@@ -8,9 +8,13 @@ import { test as base } from './fixtures';
  */
 async function simulateSlowBackend(page: Page) {
   await page.addInitScript(() => {
+    // Called below with .call(this, ...), so `this` isn't lost.
+    // oxlint-disable-next-line typescript/unbound-method
     const setItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
-      fetch('/todomvc/api/todos', { method: 'PUT', body: value }).then(() =>
+      // Not awaited on purpose: setItem is synchronous, and the save
+      // finishing in the background is the race this spec is about.
+      void fetch('/todomvc/api/todos', { method: 'PUT', body: value }).then(() =>
         setItem.call(this, key, value),
       );
     };

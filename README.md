@@ -11,6 +11,7 @@ Requires Node.js (LTS).
 ```sh
 npm ci                               # install dependencies
 npx tsc                              # type-check
+npx oxlint --type-aware              # lint (catches a missing `await`)
 npx playwright install --with-deps   # install browsers
 npx playwright test                  # run the suite
 npx playwright show-report           # open the HTML report
@@ -37,6 +38,7 @@ tests/
   persistence.spec.ts       Todos survive a reload, with a simulated slow backend
 playwright.config.ts        Browsers, parallelism, retries, reporter
 tsconfig.json               Strict type-checking (no output files)
+.oxlintrc.json              Lint rules, including no-floating-promises
 .github/workflows/          CI pipeline
 ```
 
@@ -102,4 +104,5 @@ Result: 200 out of 200 passes with `--repeat-each=100 --fail-on-flaky-tests` on 
 - On CI (`process.env.CI`): 2 retries, 1 worker, and `test.only` fails the build.
 - Traces are recorded on the first retry. Reports go to `playwright-report/`.
 - **Type-checking.** Playwright removes TypeScript types without checking them, so a wrong argument type can still produce a passing test. For example, `expectCompleted('buy milk', 'false')` asserts the opposite of what it says, because `'false'` is truthy. `npx tsc` checks the project with `strict` on. CI runs it before installing browsers, so a type error fails the build within seconds.
+- **Linting for a missing `await`.** `tsc` accepts an unawaited promise, but in Playwright a missing `await` makes a test flaky and lets wrong assertions pass. A probe test with `todoPage.toggle(...)` not awaited, followed by a wrong `expectItemsLeft(1)`, passed 9 out of 20 runs. [oxlint](https://oxc.rs) with type-aware linting (`typescript/no-floating-promises`) flags it on every run. ESLint's `typescript-eslint` doesn't support TypeScript 7 yet. CI runs the linter with `--deny-warnings`, next to the type check.
 - [GitHub Actions](.github/workflows/playwright.yml) runs the suite on every push and pull request to `main` and uploads the HTML report as an artifact, kept for 30 days.
