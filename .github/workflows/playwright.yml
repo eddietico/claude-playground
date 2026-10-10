@@ -20,7 +20,10 @@ jobs:
     - name: Lint
       run: npx oxlint --type-aware --deny-warnings
     - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
+      # Only the browsers enabled in playwright.config.ts; keep the two lists in sync.
+      # The timeout makes a hung apt-get fail fast instead of eating the job's 60 minutes.
+      timeout-minutes: 10
+      run: npx playwright install --with-deps chromium webkit
     - name: Run Playwright tests
       run: npx playwright test
     - uses: actions/upload-artifact@v7

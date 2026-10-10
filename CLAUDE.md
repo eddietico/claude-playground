@@ -41,4 +41,4 @@ npx playwright codegen <url>                       # record a new test
 
 ## CI
 
-`.github/workflows/playwright.yml` runs on push/PR to `main`/`master`: `npm ci`, type-checks with `npx tsc` and lints with `npx oxlint --type-aware --deny-warnings` (both before the slow browser install, so they fail fast), installs browsers, runs `npx playwright test` on ubuntu-latest with Node LTS, and uploads `playwright-report/` as an artifact (30-day retention).
+`.github/workflows/playwright.yml` runs on push/PR to `main`/`master`: `npm ci`, type-checks with `npx tsc` and lints with `npx oxlint --type-aware --deny-warnings` (both before the slow browser install, so they fail fast), installs only the chromium and webkit browsers (with a 10-minute step timeout; keep that list in sync with the config's projects), runs `npx playwright test` on ubuntu-latest with Node LTS, and uploads `playwright-report/` as an artifact (30-day retention).
