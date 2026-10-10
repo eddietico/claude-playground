@@ -14,10 +14,11 @@ Specs use the Page Object Model: page objects live in `tests/pages/` (e.g. `Todo
 
 ## Commands
 
-There are no npm scripts; use `npx playwright` directly.
+There are no npm scripts; use `npx playwright` and `npx tsc` directly.
 
 ```sh
 npm ci                                   # install dependencies
+npx tsc                                  # type-check (Playwright itself never checks types)
 npx playwright install --with-deps       # install browser binaries (first run / after upgrading Playwright)
 npx playwright test                      # run all tests on chromium and webkit
 npx playwright test tests/todo-list.spec.ts        # run a single file
@@ -30,6 +31,7 @@ npx playwright codegen <url>                       # record a new test
 
 ## Configuration notes
 
+- `tsconfig.json` is for type-checking only (`noEmit`, `strict`). It covers `playwright.config.ts` and `tests/**/*.ts`, and includes the `dom` lib because `addInitScript`/`page.evaluate` callbacks run in the browser. TypeScript is v7; set options explicitly rather than relying on its defaults.
 - `playwright.config.ts`: `testDir` is `./tests`; tests run fully parallel across two projects (chromium, webkit). Firefox is intentionally disabled for now (commented out in the config); don't re-enable it unless asked.
 - CI-specific behaviour is keyed off `process.env.CI`: `test.only` fails the run, retries = 2, and workers = 1. Locally there are no retries.
 - Traces are only collected `on-first-retry`, so locally you get none unless you pass `--trace on`.
@@ -37,4 +39,4 @@ npx playwright codegen <url>                       # record a new test
 
 ## CI
 
-`.github/workflows/playwright.yml` runs on push/PR to `main`/`master`: `npm ci`, installs browsers, runs `npx playwright test` on ubuntu-latest with Node LTS, and uploads `playwright-report/` as an artifact (30-day retention).
+`.github/workflows/playwright.yml` runs on push/PR to `main`/`master`: `npm ci`, type-checks with `npx tsc` (before the slow browser install, so type errors fail fast), installs browsers, runs `npx playwright test` on ubuntu-latest with Node LTS, and uploads `playwright-report/` as an artifact (30-day retention).
