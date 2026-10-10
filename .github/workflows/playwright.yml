@@ -17,6 +17,8 @@ jobs:
       run: npm ci
     - name: Type-check
       run: npx tsc
+    - name: Lint
+      run: npx oxlint --type-aware --deny-warnings
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
     - name: Run Playwright tests
