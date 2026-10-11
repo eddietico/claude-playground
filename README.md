@@ -38,6 +38,7 @@ tests/
   persistence.spec.ts       Todos survive a reload, with a simulated slow backend
   accessibility.spec.ts     axe scans for WCAG A/AA violations, with a baseline of known ones
   keyboard.spec.ts          Keyboard-only use: tab order, add, complete, clear, filter; known gaps
+  visual.spec.ts            Screenshot comparisons; baselines in visual.spec.ts-snapshots/
 playwright.config.ts        Browsers, parallelism, retries, reporter
 tsconfig.json               Strict type-checking (no output files)
 .oxlintrc.json              Lint rules, including no-floating-promises
@@ -92,6 +93,22 @@ Adding, completing (Space), marking all, clearing completed and filtering all wo
 
 Each was run once without `test.fail()` to check it fails for that reason, because `test.fail()` also passes when a test fails for some other reason. Playwright's WebKit never moves focus to links with Tab, like Safari's default, so the filter test is skipped there.
 
+**Visual regression.** `visual.spec.ts` compares full-page screenshots of three states (empty, with todos, editing) against committed baselines. Screenshots depend on the OS, because fonts and anti-aliasing differ, so Playwright keeps one baseline per browser and OS: `*-win32.png` for local runs on Windows and `*-linux.png` for CI. To update them after an intended UI change:
+
+- **Windows:** `npx playwright test tests/visual.spec.ts --update-snapshots`.
+- **Linux:** add the `update-snapshots` label to the PR. The [Update Linux snapshots](.github/workflows/update-snapshots.yml) workflow regenerates them on the same runner image as CI and uploads them as the `linux-snapshots` artifact. Download it with `gh run download <run-id> -n linux-snapshots -D tests` (the artifact keeps the `visual.spec.ts-snapshots/` folder) and commit.
+
+Look at the new images before committing them: the test only checks that the page matches the baseline, not that the baseline is right.
+
+The comparison uses Playwright's defaults, which allow no differing pixels. A per-pixel colour tolerance (`threshold: 0.2`) absorbs small rendering noise. Breaking the page on purpose:
+
+- Hiding "Clear completed" fails (211 pixels differ).
+- Shifting the list 1px fails (1,191 pixels).
+- Changing the filter links from `#777` to `#767676` passes, below the colour tolerance. Contrast is axe's job.
+- With `maxDiffPixelRatio: 0.01`, a common way to quiet screenshot tests that sometimes fail, the hidden button passes too: it's only about 0.02% of the page. So the defaults stay. If a screenshot test fails now and then, fix the cause or screenshot a smaller element; don't loosen the tolerance.
+
+The Windows and Linux baselines differ by 127–219 pixels per image, mostly from font substitution: Linux has no Arial. That's about as much as the missing button (211 pixels), so no tolerance could ignore the OS difference and still catch the button. That's why each OS has its own baselines.
+
 ## Case study: fixing a flaky test
 
 `persistence.spec.ts` checks that a todo survives a page reload. The demo saves synchronously, so to test a realistic race, `simulateSlowBackend` makes the app save through a `PUT /api/todos` request. A `page.route` mock answers that request after a random 50–350ms, and the data is only stored once the answer arrives.
@@ -130,4 +147,4 @@ Result: 200 out of 200 passes with `--repeat-each=100 --fail-on-flaky-tests` on 
 - Traces are recorded on the first retry. Reports go to `playwright-report/`.
 - **Type-checking.** Playwright removes TypeScript types without checking them, so a wrong argument type can still produce a passing test. For example, `expectCompleted('buy milk', 'false')` asserts the opposite of what it says, because `'false'` is truthy. `npx tsc` checks the project with `strict` on. CI runs it before installing browsers, so a type error fails the build within seconds.
 - **Linting for a missing `await`.** `tsc` accepts an unawaited promise, but in Playwright a missing `await` makes a test flaky and lets wrong assertions pass. A probe test with `todoPage.toggle(...)` not awaited, followed by a wrong `expectItemsLeft(1)`, passed 9 out of 20 runs. [oxlint](https://oxc.rs) with type-aware linting (`typescript/no-floating-promises`) flags it on every run. ESLint's `typescript-eslint` doesn't support TypeScript 7 yet. CI runs the linter with `--deny-warnings`, next to the type check.
-- [GitHub Actions](.github/workflows/playwright.yml) runs the suite on every push and pull request to `main` and uploads the HTML report as an artifact, kept for 30 days.
+- [GitHub Actions](.github/workflows/playwright.yml) runs the suite on every push and pull request to `main` and uploads the HTML report as an artifact, kept for 30 days. A second workflow, [Update Linux snapshots](.github/workflows/update-snapshots.yml), regenerates the Linux screenshot baselines when a PR gets the `update-snapshots` label.
