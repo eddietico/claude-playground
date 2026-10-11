@@ -35,7 +35,7 @@ tests/
   pages/todo-page.ts        Page object: locators, user actions, assertions
   todo-list.spec.ts         Add, complete, delete, filter, clear
   editing.spec.ts           Edit rules: save, cancel, trim, delete on empty
-  persistence.spec.ts       Todos survive a reload, with a simulated slow backend
+  persistence.spec.ts       Todos survive a reload, with a simulated slow backend; out-of-order saves
   accessibility.spec.ts     axe scans for WCAG A/AA violations, with a baseline of known ones
   keyboard.spec.ts          Keyboard-only use: tab order, add, complete, clear, filter; known gaps
   visual.spec.ts            Screenshot comparisons; baselines in visual.spec.ts-snapshots/
@@ -150,6 +150,16 @@ await page.reload();
 ```
 
 Result: 200 out of 200 passes with `--repeat-each=100 --fail-on-flaky-tests` on both browsers. A longer sleep would only have made failures rarer, and every run slower.
+
+### A second race: out-of-order saves
+
+With two quick saves (adding two todos), each save gets its own random delay. A test that waited for *both* saves before reloading still failed 9 out of 40 runs: after the reload only "buy milk" was left. The second save, holding both todos, was answered first. Then the first save's older state was written over it.
+
+That's a different kind of bug from the reload race. That one was in the test, which reloaded too early. This one is in the app: the stored data is wrong, and no amount of waiting in the test can fix it. Here's how it was handled:
+
+1. **Make it deterministic.** `simulateSlowBackend` takes optional fixed delays, one per save, set per test with the `saveDelays` option. With the older save answered last (300ms, then 50ms), it failed 10 out of 10. With the other order, it passed 10 out of 10. So the 22% random failure rate was just the chance of the bad order.
+2. **Fix the app.** The simulated client now numbers its saves and stores a response only if it belongs to the newest save. A real backend would enforce the same rule on the server, rejecting stale writes with a version number or an ETag and `If-Match` (optimistic concurrency). Queueing saves one at a time is the other common fix.
+3. **Keep both orders as regression tests.** Removing the version check fails "older save answered last" every time (20 out of 20). A wrong check that only stores the first save fails both orders. With the fix, 120 out of 120 passes with `--repeat-each=20`.
 
 ## Configuration and CI
 
