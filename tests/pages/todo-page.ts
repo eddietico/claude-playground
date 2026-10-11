@@ -75,8 +75,34 @@ export class TodoPage {
     }
   }
 
+  checkbox(title: string): Locator {
+    return this.item(title).getByRole('checkbox', { name: 'Toggle Todo' });
+  }
+
+  /** Matches even while hidden: the button is only shown on hover. */
+  deleteButton(title: string): Locator {
+    return this.item(title).getByRole('button', { name: 'Delete', includeHidden: true });
+  }
+
   async toggle(title: string) {
-    await this.item(title).getByRole('checkbox', { name: 'Toggle Todo' }).click();
+    await this.checkbox(title).click();
+  }
+
+  /**
+   * Press Tab until `target` has focus, as a keyboard user would. Fails if
+   * focus reaches the end of the page first, e.g. because the target can't
+   * take focus or comes earlier in the tab order. Stopping there, instead of
+   * letting Tab wrap round to the top, is what lets callers check order.
+   */
+  async tabTo(target: Locator, maxPresses = 30) {
+    for (let i = 0; i < maxPresses; i++) {
+      await this.page.keyboard.press('Tab');
+      if (await target.evaluate((el) => el === document.activeElement)) return;
+      if (await this.page.evaluate(() => document.activeElement === document.body)) {
+        throw new Error(`${target.toString()} not reached before the end of the page`);
+      }
+    }
+    throw new Error(`${target.toString()} not reached in ${maxPresses} Tab presses`);
   }
 
   async toggleAllTodos() {
@@ -100,10 +126,9 @@ export class TodoPage {
   }
 
   async delete(title: string) {
-    const item = this.item(title);
     // The delete button is only rendered visible on hover.
-    await item.hover();
-    await item.getByRole('button', { name: 'Delete' }).click();
+    await this.item(title).hover();
+    await this.deleteButton(title).click();
   }
 
   async filter(name: Filter) {
