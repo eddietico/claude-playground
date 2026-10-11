@@ -96,7 +96,7 @@ Each was run once without `test.fail()` to check it fails for that reason, becau
 **Visual regression.** `visual.spec.ts` compares full-page screenshots of three states (empty, with todos, editing) against committed baselines. Screenshots depend on the OS, because fonts and anti-aliasing differ, so Playwright keeps one baseline per browser and OS: `*-win32.png` for local runs on Windows and `*-linux.png` for CI. To update them after an intended UI change:
 
 - **Windows:** `npx playwright test tests/visual.spec.ts --update-snapshots`.
-- **Linux:** add the `update-snapshots` label to the PR. The [Update Linux snapshots](.github/workflows/update-snapshots.yml) workflow regenerates them on the same runner image as CI and uploads them as the `linux-snapshots` artifact. Download it into `tests/visual.spec.ts-snapshots/` (`gh run download <run-id> -n linux-snapshots -D tests/visual.spec.ts-snapshots`) and commit.
+- **Linux:** add the `update-snapshots` label to the PR. The [Update Linux snapshots](.github/workflows/update-snapshots.yml) workflow regenerates them on the same runner image as CI and uploads them as the `linux-snapshots` artifact. Download it with `gh run download <run-id> -n linux-snapshots -D tests` (the artifact keeps the `visual.spec.ts-snapshots/` folder) and commit.
 
 Look at the new images before committing them: the test only checks that the page matches the baseline, not that the baseline is right.
 
@@ -106,6 +106,8 @@ The comparison uses Playwright's defaults, which allow no differing pixels. A pe
 - Shifting the list 1px fails (1,191 pixels).
 - Changing the filter links from `#777` to `#767676` passes, below the colour tolerance. Contrast is axe's job.
 - With `maxDiffPixelRatio: 0.01`, a common way to quiet screenshot tests that sometimes fail, the hidden button passes too: it's only about 0.02% of the page. So the defaults stay. If a screenshot test fails now and then, fix the cause or screenshot a smaller element; don't loosen the tolerance.
+
+The Windows and Linux baselines differ by 127–219 pixels per image, mostly from font substitution: Linux has no Arial. That's about as much as the missing button (211 pixels), so no tolerance could ignore the OS difference and still catch the button. That's why each OS has its own baselines.
 
 ## Case study: fixing a flaky test
 
