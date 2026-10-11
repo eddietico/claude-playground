@@ -3,10 +3,9 @@ import { test } from './fixtures';
 // Editing rules from the TodoMVC spec:
 // https://github.com/tastejs/todomvc/blob/master/app-spec.md#editing
 
-// The hook and the test share one todoPage: fixtures are created per test.
-test.beforeEach(async ({ todoPage }) => {
-  // A second todo checks that edits only affect the one being edited.
-  await todoPage.addTodo('buy milk', 'walk the dog');
+// A second todo checks that edits only affect the one being edited.
+test.use({
+  seededTodos: [[{ title: 'buy milk' }, { title: 'walk the dog' }], { scope: 'test' }],
 });
 
 for (const end of ['Enter', 'blur'] as const) {

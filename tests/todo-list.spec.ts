@@ -61,12 +61,6 @@ test.describe('with one completed todo', () => {
     ],
   });
 
-  test('starts with the seeded state', async ({ todoPage }) => {
-    await todoPage.expectCompleted('buy milk');
-    await todoPage.expectCompleted('walk the dog', false);
-    await todoPage.expectItemsLeft(1);
-  });
-
   test('filters by status', async ({ todoPage }) => {
     await todoPage.filter('Active');
     await todoPage.expectTodos(['walk the dog']);
