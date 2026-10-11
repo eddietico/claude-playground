@@ -36,6 +36,7 @@ tests/
   todo-list.spec.ts         Add, complete, delete, filter, clear
   editing.spec.ts           Edit rules: save, cancel, trim, delete on empty
   persistence.spec.ts       Todos survive a reload, with a simulated slow backend
+  accessibility.spec.ts     axe scans for WCAG A/AA violations, with a baseline of known ones
 playwright.config.ts        Browsers, parallelism, retries, reporter
 tsconfig.json               Strict type-checking (no output files)
 .oxlintrc.json              Lint rules, including no-floating-promises
@@ -73,6 +74,13 @@ The fixture also checks the seeded todos appear with the right completed state, 
 **Web-first assertions, no sleeps.** Every check uses assertions that retry until they pass or time out, like `expect(locator).toHaveText(...)`. Nothing in the suite waits for a fixed amount of time.
 
 **Isolated tests.** The app stores todos in `localStorage`, and each test gets a fresh browser context. Every test starts with an empty list, needs no cleanup, and can run in parallel with the others.
+
+**Accessibility as a ratchet.** `accessibility.spec.ts` runs [axe](https://github.com/dequelabs/axe-core) on the empty list, a list with todos, and a todo being edited. Two decisions:
+
+- **What fails the build.** Only WCAG 2.2 A and AA rules, the usual compliance target. axe's best-practice rules, such as "the page has no `<main>` landmark", appear in the attached results but don't fail the test.
+- **What to do with problems in an app we don't own.** The demo already fails colour contrast in several places, for example the filter links at 4.47:1 against a 4.5:1 minimum. Those are listed in `KNOWN_VIOLATIONS` by rule and element, with reasons, and only new violations fail. Turning off the contrast rule would have been simpler, but it would hide new contrast bugs too.
+
+Breaking the page on purpose showed one limit. Removing a checkbox's accessible name fails the test with `label: .toggle`. But making the todo titles `#eee` on white still passes. The checkbox icon is a background image on the title's `<label>`, so axe can't work out the background colour and reports the title as "incomplete" (needs review), never as a violation. Automated scans cover only part of WCAG, and their `incomplete` results are where a person has to look.
 
 ## Case study: fixing a flaky test
 

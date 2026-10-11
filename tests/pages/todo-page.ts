@@ -83,8 +83,13 @@ export class TodoPage {
     await this.toggleAll.check();
   }
 
-  async edit(title: string, newTitle: string, end: EditEnd = 'Enter') {
+  /** Open the editor on a todo, the only way being a double-click. */
+  async startEditing(title: string) {
     await this.item(title).getByTestId('todo-title').dblclick();
+  }
+
+  async edit(title: string, newTitle: string, end: EditEnd = 'Enter') {
+    await this.startEditing(title);
     await this.editor.fill(newTitle);
     if (end === 'blur') {
       // Click away like a user would, rather than calling locator.blur().
