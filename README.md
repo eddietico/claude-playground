@@ -31,7 +31,7 @@ npx playwright test --trace on                # record a trace for every test
 
 ```
 tests/
-  fixtures.ts               `todoPage` fixture; specs import `test` from here
+  fixtures.ts               `todoPage` and `seededTodos` fixtures; specs import `test` from here
   pages/todo-page.ts        Page object: locators, user actions, assertions
   todo-list.spec.ts         Add, complete, delete, filter, clear
   editing.spec.ts           Edit rules: save, cancel, trim, delete on empty
@@ -60,6 +60,13 @@ test('completes a todo', async ({ todoPage }) => {
 If the UI changes, only the page object needs updating.
 
 **Fixtures instead of `beforeEach`.** `tests/fixtures.ts` extends Playwright's `test` with a `todoPage` fixture that creates the page object and opens the app. A test asks for it by name, as above, so there is no shared `let` variable and the setup appears in the test's signature. Fixtures are lazy: a test that doesn't ask for `todoPage` never navigates. `persistence.spec.ts` overrides the built-in `page` fixture to install its fake backend. Because `todoPage` depends on `page`, that override runs before the navigation.
+
+**Seeded state, not UI setup.** Only the test for adding todos adds them through the UI. The others start from todos written into `localStorage` before the app loads, so a broken "add" fails one test rather than every test. A `describe` block sets them with `test.use({ seededTodos: [[...todos], { scope: 'test' }] })`. The list has to be wrapped like that, because Playwright reads a bare array as `[value, options]`, and the fixture throws if you forget. Two things to know:
+
+- The app reads storage only once, when it starts, so the seed is an `addInitScript` registered before navigation.
+- Init scripts also run on `reload()`, so the seed only writes to empty storage. Otherwise a reload would wipe out the test's own changes.
+
+The fixture also checks the seeded todos appear, so a seed that silently fails stops the test at setup with a clear error. Seeding didn't make these tests measurably faster: page load from the live demo dominates. The benefit is focus.
 
 **User-facing locators.** Elements are found by role, label, placeholder or test id (`getByRole('checkbox', { name: 'Toggle Todo' })`) rather than CSS classes. This keeps tests close to how a user sees the page and stops them breaking when styling changes.
 

@@ -5,6 +5,9 @@ export type Filter = 'All' | 'Active' | 'Completed';
 /** How an edit ends: Enter and blur save it, Escape cancels it. */
 export type EditEnd = 'Enter' | 'Escape' | 'blur';
 
+/** A todo to put in storage before the app loads. */
+export type SeedTodo = { title: string; completed?: boolean };
+
 /**
  * Page Object for the TodoMVC demo at https://demo.playwright.dev/todomvc.
  *
@@ -13,6 +16,8 @@ export type EditEnd = 'Enter' | 'Escape' | 'blur';
  */
 export class TodoPage {
   readonly url = 'https://demo.playwright.dev/todomvc';
+  /** The app reads this localStorage key once, when its script starts. */
+  readonly storageKey = 'react-todos';
 
   readonly newTodoInput: Locator;
   readonly items: Locator;
@@ -34,6 +39,26 @@ export class TodoPage {
 
   async goto() {
     await this.page.goto(this.url);
+  }
+
+  /**
+   * Store todos for the app to load, skipping the UI. Call before goto():
+   * the app only reads storage at startup.
+   */
+  async seed(todos: SeedTodo[]) {
+    const stored = todos.map(({ title, completed = false }) => ({
+      id: crypto.randomUUID(),
+      title,
+      completed,
+    }));
+    await this.page.addInitScript(
+      ({ key, value }) => {
+        // Init scripts run on every load, reload() included. Only seed an
+        // empty list, or a reload would overwrite the app's own saves.
+        if (localStorage.getItem(key) === null) localStorage.setItem(key, value);
+      },
+      { key: this.storageKey, value: JSON.stringify(stored) },
+    );
   }
 
   /** The <li> for the todo with exactly this title. */
