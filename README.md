@@ -37,6 +37,7 @@ tests/
   editing.spec.ts           Edit rules: save, cancel, trim, delete on empty
   persistence.spec.ts       Todos survive a reload, with a simulated slow backend
   accessibility.spec.ts     axe scans for WCAG A/AA violations, with a baseline of known ones
+  keyboard.spec.ts          Keyboard-only use: tab order, add, complete, clear, filter; known gaps
 playwright.config.ts        Browsers, parallelism, retries, reporter
 tsconfig.json               Strict type-checking (no output files)
 .oxlintrc.json              Lint rules, including no-floating-promises
@@ -81,6 +82,15 @@ The fixture also checks the seeded todos appear with the right completed state, 
 - **What to do with problems in an app we don't own.** The demo already fails colour contrast in several places, for example the filter links at 4.47:1 against a 4.5:1 minimum. Those are listed in `KNOWN_VIOLATIONS` by rule and element, with reasons, and only new violations fail. Turning off the contrast rule would have been simpler, but it would hide new contrast bugs too.
 
 Breaking the page on purpose showed one limit. Removing a checkbox's accessible name fails the test with `label: .toggle`. But making the todo titles `#eee` on white still passes. The checkbox icon is a background image on the title's `<label>`, so axe can't work out the background colour and reports the title as "incomplete" (needs review), never as a violation. Automated scans cover only part of WCAG, and their `incomplete` results are where a person has to look.
+
+**Keyboard-only tests.** axe checks the markup, but not whether you can actually use the page without a mouse. `keyboard.spec.ts` drives the app with keys alone, with no `click`, `fill` or `focus()`. `TodoPage.tabTo(locator)` presses Tab until the target has focus. It fails if focus reaches the end of the page first, rather than letting Tab wrap round to the top. Without that, a test of the tab order passed with the order reversed.
+
+Adding, completing (Space), marking all, clearing completed and filtering all work. Two things don't, and they're recorded with `test.fail()`, so the suite stays green while they're broken and reports it if the demo ever fixes them:
+
+- **Delete:** the button only appears on hover, so it never takes focus.
+- **Edit:** only a double-click opens the editor, and the titles never take focus.
+
+Each was run once without `test.fail()` to check it fails for that reason, because `test.fail()` also passes when a test fails for some other reason. Playwright's WebKit never moves focus to links with Tab, like Safari's default, so the filter test is skipped there.
 
 ## Case study: fixing a flaky test
 
