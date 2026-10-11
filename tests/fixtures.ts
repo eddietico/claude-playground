@@ -36,7 +36,12 @@ export const test = base.extend<Fixtures>({
     await todoPage.goto();
     // Check the seed took, so a broken seed fails here with a clear message
     // instead of as a timeout in whichever step first needs a todo.
-    if (seededTodos.length) await todoPage.expectTodos(seededTodos.map((t) => t.title));
+    if (seededTodos.length) {
+      await todoPage.expectTodos(seededTodos.map((t) => t.title));
+      for (const { title, completed = false } of seededTodos) {
+        await todoPage.expectCompleted(title, completed);
+      }
+    }
     await use(todoPage);
     // Code after use() is teardown. None is needed: each test gets a fresh
     // browser context, so its localStorage (and the todos) is thrown away.
