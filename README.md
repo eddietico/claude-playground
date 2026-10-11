@@ -2,7 +2,7 @@
 
 [![Playwright Tests](https://github.com/eddietico/claude-playground/actions/workflows/playwright.yml/badge.svg)](https://github.com/eddietico/claude-playground/actions/workflows/playwright.yml)
 
-End-to-end tests for the [TodoMVC demo app](https://demo.playwright.dev/todomvc), written in TypeScript with [Playwright](https://playwright.dev). The tests run on Chromium and WebKit, locally and in GitHub Actions.
+End-to-end tests for the [TodoMVC demo app](https://demo.playwright.dev/todomvc), written in TypeScript with [Playwright](https://playwright.dev). The tests run on Chromium and WebKit, locally and in GitHub Actions. The demo has no backend, so a separate set of API tests targets the [Restful Booker](https://restful-booker.herokuapp.com) practice API.
 
 ## Getting started
 
@@ -39,6 +39,9 @@ tests/
   accessibility.spec.ts     axe scans for WCAG A/AA violations, with a baseline of known ones
   keyboard.spec.ts          Keyboard-only use: tab order, add, complete, clear, filter; known gaps
   visual.spec.ts            Screenshot comparisons; baselines in visual.spec.ts-snapshots/
+  api/booking-api.ts        Client for the Restful Booker API (the API's page object)
+  api/fixtures.ts           `token`, `api`, `bookingData` and `booking` (created, then deleted) fixtures
+  api/booking.spec.ts       Create, read, find, update, delete, auth; known status-code bugs
 playwright.config.ts        Browsers, parallelism, retries, reporter
 tsconfig.json               Strict type-checking (no output files)
 .oxlintrc.json              Lint rules, including no-floating-promises
@@ -109,6 +112,14 @@ The comparison uses Playwright's defaults, which allow no differing pixels. A pe
 
 The Windows and Linux baselines differ by 127–219 pixels per image, mostly from font substitution: Linux has no Arial. That's about as much as the missing button (211 pixels), so no tolerance could ignore the OS difference and still catch the button. That's why each OS has its own baselines.
 
+**API tests.** `tests/api/` tests a REST API directly with Playwright's `request` fixture, with no browser. They run once, in an `api` project with its own `baseURL`. `BookingApi` wraps the endpoints the way `TodoPage` wraps the UI, and returns raw responses so tests can check status codes as well as bodies. A few points:
+
+- **Cleanup.** The TodoMVC tests get a fresh `localStorage` each time, but this server is shared and keeps everything. Tests use unique last names, so they can't see each other's data (or anyone else's), and the `booking` fixture deletes its booking after the test. With that delete turned off, all tests still passed and left 4 bookings behind: missing cleanup doesn't fail anything, so check for leftovers.
+- **Contracts.** `toEqual({ bookingid: expect.any(Number), booking: data })` checks the response's exact shape, not just a few fields.
+- **Auth.** Writes need a token from `/auth`. A test checks that writes without one are rejected and change nothing.
+- **Known bugs.** The API returns 200 on create (should be 201), 201 on delete, 200 for wrong credentials (should be 401), and 500 for an incomplete booking (should be 400). These are `test.fail()` tests, each run once without it to check it fails on the status.
+- **Availability.** Restful Booker, like the TodoMVC demo, is a third-party service. If it's down, these tests fail even though nothing in the repo changed.
+
 ## Case study: fixing a flaky test
 
 `persistence.spec.ts` checks that a todo survives a page reload. The demo saves synchronously, so to test a realistic race, `simulateSlowBackend` makes the app save through a `PUT /api/todos` request. A `page.route` mock answers that request after a random 50–350ms, and the data is only stored once the answer arrives.
@@ -142,7 +153,7 @@ Result: 200 out of 200 passes with `--repeat-each=100 --fail-on-flaky-tests` on 
 
 ## Configuration and CI
 
-- Tests run fully in parallel across **Chromium** and **WebKit**. Firefox is disabled for now.
+- UI tests run fully in parallel across **Chromium** and **WebKit**. Firefox is disabled for now. API tests run once, in their own `api` project, without a browser.
 - On CI (`process.env.CI`): 2 retries, 1 worker, and `test.only` fails the build.
 - Traces are recorded on the first retry. Reports go to `playwright-report/`.
 - **Type-checking.** Playwright removes TypeScript types without checking them, so a wrong argument type can still produce a passing test. For example, `expectCompleted('buy milk', 'false')` asserts the opposite of what it says, because `'false'` is truthy. `npx tsc` checks the project with `strict` on. CI runs it before installing browsers, so a type error fails the build within seconds.

@@ -6,7 +6,9 @@ At the start of a session, read `NOTES.md` if it exists. It's a gitignored, loca
 
 ## Overview
 
-A Playwright end-to-end testing playground (TypeScript). There is no application code: the repo holds Playwright config and specs under `tests/`, which run against the external TodoMVC demo at `https://demo.playwright.dev/todomvc`. No `baseURL` or `webServer` is configured; the URL lives in the page object.
+A Playwright end-to-end testing playground (TypeScript). There is no application code: the repo holds Playwright config and specs under `tests/`, which run against the external TodoMVC demo at `https://demo.playwright.dev/todomvc`. No `webServer` is configured, and the browser projects have no `baseURL`; the URL lives in the page object.
+
+API tests in `tests/api/` run against the public practice API Restful Booker (`https://restful-booker.herokuapp.com`, the `api` project's `baseURL`) through the `BookingApi` client in `tests/api/booking-api.ts`, with their own `tests/api/fixtures.ts` (`token`, `api`, `bookingData`, `booking`). That server is shared and keeps its data, so unlike the TodoMVC specs these tests must clean up: use the `booking` fixture, which deletes in teardown, and unique names from `bookingData`. A missing cleanup doesn't fail any test, it just leaves bookings on the server. The API's wrong status codes (200 on create, 201 on delete, 200 on bad credentials, 500 on invalid input) are `test.fail()` known bugs. Both the demo and Restful Booker are third-party services the suite needs to reach: tests need internet access, and if either service is down, its tests fail with no change in the repo. Check that before debugging a sudden failure.
 
 Specs use the Page Object Model: page objects live in `tests/pages/` (e.g. `TodoPage` in `tests/pages/todo-page.ts`) and expose locators, user actions (`addTodo`, `toggle`, `edit`, …) and `expect*` assertion helpers. Specs should go through the page object rather than using raw selectors. Specs import `test`/`expect` from `tests/fixtures.ts`, not `@playwright/test`, and get the page object from the `todoPage` fixture (created and navigated per test) instead of a `beforeEach`. Fixtures are lazy, so a test that needs the app loaded must ask for `todoPage` even if it only uses `todoPage.page`. The demo stores todos in each browser context's `localStorage`, so every test starts with an empty list and needs no cleanup. To start with todos already present, set the `seededTodos` option with `test.use({ seededTodos: [[...todos], { scope: 'test' }] })`; the outer wrapper is required because Playwright reads a bare array as `[value, options]`. The fixture writes them to `localStorage` (key `react-todos`) with `addInitScript` before navigating, only when storage is empty so a reload keeps the app's saves, and asserts their titles and completed states render. Only use UI setup when adding is the behaviour under test. Don't combine seeding with `simulateSlowBackend`: it patches `Storage.prototype.setItem`, so the seed's write would be delayed too.
 
@@ -21,7 +23,8 @@ npm ci                                   # install dependencies
 npx tsc                                  # type-check (Playwright itself never checks types)
 npx oxlint --type-aware --deny-warnings  # lint, incl. missing `await` (no-floating-promises)
 npx playwright install --with-deps       # install browser binaries (first run / after upgrading Playwright)
-npx playwright test                      # run all tests on chromium and webkit
+npx playwright test                      # run all tests: UI on chromium and webkit, API once
+npx playwright test --project=api                  # run only the API tests
 npx playwright test tests/todo-list.spec.ts        # run a single file
 npx playwright test -g "has title"                 # run tests matching a title
 npx playwright test --project=chromium             # run a single browser project
@@ -34,7 +37,7 @@ npx playwright codegen <url>                       # record a new test
 
 - `tsconfig.json` is for type-checking only (`noEmit`, `strict`). It covers `playwright.config.ts` and `tests/**/*.ts`, and includes the `dom` lib because `addInitScript`/`page.evaluate` callbacks run in the browser. TypeScript is v7; set options explicitly rather than relying on its defaults.
 - `.oxlintrc.json`: oxlint's default correctness rules plus `typescript/no-floating-promises` as an error. Type-aware rules only run with `--type-aware` (via `oxlint-tsgolint`, built on the TS 7 Go compiler); without the flag the rule is silently skipped. oxlint is used instead of ESLint because `typescript-eslint` doesn't support TypeScript 7 yet. Mark intentionally unawaited promises with `void` and a comment; suppress false positives per line with `// oxlint-disable-next-line <rule>` plus a reason.
-- `playwright.config.ts`: `testDir` is `./tests`; tests run fully parallel across two projects (chromium, webkit). Firefox is intentionally disabled for now (commented out in the config); don't re-enable it unless asked.
+- `playwright.config.ts`: `testDir` is `./tests`; tests run fully parallel across three projects: `api` (`testDir: ./tests/api`, no browser, its own `baseURL`) and the browser projects chromium and webkit, which `testIgnore` `api/**`. Firefox is intentionally disabled for now (commented out in the config); don't re-enable it unless asked.
 - CI-specific behaviour is keyed off `process.env.CI`: `test.only` fails the run, retries = 2, and workers = 1. Locally there are no retries.
 - Traces are only collected `on-first-retry`, so locally you get none unless you pass `--trace on`.
 - The reporter is `html`; output goes to `playwright-report/` and `test-results/` (both gitignored).

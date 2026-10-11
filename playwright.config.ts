@@ -34,8 +34,19 @@ export default defineConfig({
 
   /* Configure projects for major browsers */
   projects: [
+    /* API tests need no browser, so they run once, in their own project. */
+    {
+      name: 'api',
+      testDir: './tests/api',
+      use: {
+        baseURL: 'https://restful-booker.herokuapp.com',
+        extraHTTPHeaders: { Accept: 'application/json' },
+      },
+    },
+
     {
       name: 'chromium',
+      testIgnore: 'api/**',
       use: { ...devices['Desktop Chrome'] },
     },
 
@@ -47,6 +58,7 @@ export default defineConfig({
 
     {
       name: 'webkit',
+      testIgnore: 'api/**',
       use: { ...devices['Desktop Safari'] },
     },
 
