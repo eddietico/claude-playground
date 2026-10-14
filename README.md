@@ -35,7 +35,7 @@ tests/
   pages/todo-page.ts        Page object: locators, user actions, assertions
   todo-list.spec.ts         Add, complete, delete, filter, clear
   editing.spec.ts           Edit rules: save, cancel, trim, delete on empty
-  persistence.spec.ts       Todos survive a reload, with a simulated slow backend; out-of-order and failed saves
+  persistence.spec.ts       Todos survive a reload, with a simulated slow backend; out-of-order, failed and stale saves
   accessibility.spec.ts     axe scans for WCAG A/AA violations, with a baseline of known ones
   keyboard.spec.ts          Keyboard-only use: tab order, add, complete, clear, filter; known gaps
   visual.spec.ts            Screenshot comparisons; baselines in visual.spec.ts-snapshots/
@@ -157,7 +157,7 @@ With two quick saves (adding two todos), each save gets its own random delay. A 
 
 That's a different kind of bug from the reload race. That one was in the test, which reloaded too early. This one is in the app: the stored data is wrong, and no amount of waiting in the test can fix it. Here's how it was handled:
 
-1. **Make it deterministic.** `simulateSlowBackend` takes optional fixed delays, one per save, set per test with the `saveDelays` option. With the older save answered last (300ms, then 50ms), it failed 10 out of 10. With the other order, it passed 10 out of 10. So the 22% random failure rate was just the chance of the bad order.
+1. **Make it deterministic.** `simulateSlowBackend` takes optional fixed delays, one per save, set per test with the `saveDelays` option. With the older save answered last (300ms, then 50ms), it failed 10 out of 10. With the other order, it passed 10 out of 10. So the 22% random failure rate was just the chance of the bad order. (On WebKit, fixed delays later turned out not to guarantee the order; the tests now use `saveOrder`. See "Rejecting stale saves on the server" below.)
 2. **Fix the app.** The simulated client now numbers its saves and stores a response only if it belongs to the newest save. A real backend would enforce the same rule on the server, rejecting stale writes with a version number or an ETag and `If-Match` (optimistic concurrency). Queueing saves one at a time is the other common fix.
 3. **Keep both orders as regression tests.** Removing the version check fails "older save answered last" every time (20 out of 20). A wrong check that only stores the first save fails both orders. With the fix, 120 out of 120 passes with `--repeat-each=20`.
 
@@ -171,6 +171,20 @@ A probe had the route fail saves on purpose, with `route.fulfill({ status: 500 }
 The client now retries 5xx and network errors up to 3 times with exponential backoff (100, 200, 400ms). It doesn't retry a 4xx, because the request itself is wrong and sending it again won't help. It also stops retrying a save once a newer one exists, since every save sends the whole list. If the newest save gives up, the change stays on screen and a `role="alert"` says it wasn't saved, until a later save succeeds. The `saveResponses` option sets each request's outcome, retries included (e.g. `[500, 204]`: fail once, then succeed).
 
 The tests cover a failure that clears up after one retry, one that never clears up, a 400 that isn't retried, and recovery on the next save. They count requests as well as checking the result: "retries and saves" would pass without any retry if the first request happened to succeed. Breaking the client on purpose five ways (no `res.ok` check, retrying a 4xx, 2 retries instead of 3, not clearing the alert, not retrying network errors) failed at least one test each time. The one change no test catches is retrying a save that's already been superseded. It costs an extra request with no visible effect, and proving that a request never happens would need a fixed wait.
+
+### Rejecting stale saves on the server
+
+The out-of-order fix above lived only in the client. To move it to the server, the route mock became a small stateful fake that keeps its own copy of the list (`server.todos`). Tests check that copy directly, the way a real test would check the backend through its API.
+
+**Choosing what "stale" means.** The textbook tool is `If-Match` with a version or ETag. It doesn't fit here: two quick saves are based on the same version, so the second would be rejected even though it's newer. ETags solve a different problem (two users or tabs overwriting each other). For one client's saves, the fit is a sequence number. The client sends `X-Client-Id` (random per page load, because the counter restarts on reload) and `X-Save-Seq`. The server rejects a lower number than one it has already accepted from that client with a **409**, and the client ignores that 409 instead of showing the error alert, because a newer save already carries the change.
+
+**The retry trap.** A retry reuses its save's number. If the server applied a save but the response was lost, a `<=` check would 409 the retry, and the client would report a saved change as failed. So an equal number is accepted again without being re-applied, which makes retries idempotent. A `'lost'` outcome (applied, then the connection drops) tests that.
+
+**What building it exposed:**
+- **The server had been silently storing stale data.** With the stateful server but no check, "older save answered last" failed: the server kept only "buy milk". The client's own check had kept the screen right, so no test could see it.
+- **The race test hadn't always run the race.** Fixed delays (300ms, then 50ms) count from each request's arrival. When WebKit took over 250ms between the two adds, the first save was answered before the second was even sent. **11 of 20 WebKit runs** never got the order the test is named after, and still passed, because the final data is right in either order. Checking the response statuses (`[204, 409]`) caught it. A `saveOrder` option now holds requests and answers them in a given order, e.g. `[2, 1]`, whatever the timing: 40 of 40 on each browser.
+
+**Breaking it on purpose.** These were each caught: the server applying stale writes, a `<=` check, the client alerting on a superseded 409, and `saveOrder` being ignored (22 of 40 runs failed). Re-applying a duplicate isn't caught, and it doesn't need to be: the data is the same. The race tests wait for the client to finish handling both answers (`waitForHandled`, a counter in the simulated client) before asserting the alert is hidden, so that assertion can't pass before the 409 has been handled. That's insurance: without the wait, the alert bug was still caught 10 of 10.
 
 ## Configuration and CI
 
