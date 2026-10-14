@@ -35,7 +35,7 @@ tests/
   pages/todo-page.ts        Page object: locators, user actions, assertions
   todo-list.spec.ts         Add, complete, delete, filter, clear
   editing.spec.ts           Edit rules: save, cancel, trim, delete on empty
-  persistence.spec.ts       Todos survive a reload, with a simulated slow backend; out-of-order saves
+  persistence.spec.ts       Todos survive a reload, with a simulated slow backend; out-of-order and failed saves
   accessibility.spec.ts     axe scans for WCAG A/AA violations, with a baseline of known ones
   keyboard.spec.ts          Keyboard-only use: tab order, add, complete, clear, filter; known gaps
   visual.spec.ts            Screenshot comparisons; baselines in visual.spec.ts-snapshots/
@@ -160,6 +160,17 @@ That's a different kind of bug from the reload race. That one was in the test, w
 1. **Make it deterministic.** `simulateSlowBackend` takes optional fixed delays, one per save, set per test with the `saveDelays` option. With the older save answered last (300ms, then 50ms), it failed 10 out of 10. With the other order, it passed 10 out of 10. So the 22% random failure rate was just the chance of the bad order.
 2. **Fix the app.** The simulated client now numbers its saves and stores a response only if it belongs to the newest save. A real backend would enforce the same rule on the server, rejecting stale writes with a version number or an ETag and `If-Match` (optimistic concurrency). Queueing saves one at a time is the other common fix.
 3. **Keep both orders as regression tests.** Removing the version check fails "older save answered last" every time (20 out of 20). A wrong check that only stores the first save fails both orders. With the fix, 120 out of 120 passes with `--repeat-each=20`.
+
+### Failed saves
+
+A probe had the route fail saves on purpose, with `route.fulfill({ status: 500 })` and `route.abort('connectionreset')`. It found two bugs in the simulated client:
+
+- **A 500 was stored as a success.** `fetch` only rejects on network errors. Any HTTP response, including a 500, resolves, so the client has to check `res.ok`.
+- **A network error lost the change silently.** There was no retry and no message, and the rejected promise was never handled.
+
+The client now retries 5xx and network errors up to 3 times with exponential backoff (100, 200, 400ms). It doesn't retry a 4xx, because the request itself is wrong and sending it again won't help. It also stops retrying a save once a newer one exists, since every save sends the whole list. If the newest save gives up, the change stays on screen and a `role="alert"` says it wasn't saved, until a later save succeeds. The `saveResponses` option sets each request's outcome, retries included (e.g. `[500, 204]`: fail once, then succeed).
+
+The tests cover a failure that clears up after one retry, one that never clears up, a 400 that isn't retried, and recovery on the next save. They count requests as well as checking the result: "retries and saves" would pass without any retry if the first request happened to succeed. Breaking the client on purpose five ways (no `res.ok` check, retrying a 4xx, 2 retries instead of 3, not clearing the alert, not retrying network errors) failed at least one test each time. The one change no test catches is retrying a save that's already been superseded. It costs an extra request with no visible effect, and proving that a request never happens would need a fixed wait.
 
 ## Configuration and CI
 
