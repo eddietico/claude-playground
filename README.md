@@ -1,6 +1,6 @@
 # Playwright TodoMVC Tests
 
-[![Playwright Tests](https://github.com/eddietico/claude-playground/actions/workflows/playwright.yml/badge.svg)](https://github.com/eddietico/claude-playground/actions/workflows/playwright.yml)
+[![Playwright Tests](https://github.com/eddietico/sdet-practice/actions/workflows/playwright.yml/badge.svg)](https://github.com/eddietico/sdet-practice/actions/workflows/playwright.yml)
 
 End-to-end tests for the [TodoMVC demo app](https://demo.playwright.dev/todomvc), written in TypeScript with [Playwright](https://playwright.dev). The tests run on Chromium and WebKit, locally and in GitHub Actions. The demo has no backend, so a separate set of API tests targets the [Restful Booker](https://restful-booker.herokuapp.com) practice API.
 
